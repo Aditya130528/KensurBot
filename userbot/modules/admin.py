@@ -560,6 +560,39 @@ async def pin(msg):
         )
 
 
+@register(outgoing=True, pattern=r"^\.unpin$")
+async def unpin(event):
+    """ For .unpin command, unpins the replied/tagged message or all pinned messages. """
+    chat = await event.get_chat()
+    admin = chat.admin_rights
+    creator = chat.creator
+
+    if not (admin or creator):
+        return await event.edit(NO_ADMIN)
+
+    if event.is_reply:
+        to_unpin = event.reply_to_event_id
+        args = (event.chat_id, to_unpin)
+    else:
+        args = (event.chat_id)
+
+    try:
+        await event.client.unpin_message(*args)
+    except BadRequestError:
+        return await event.edit(NO_PERM)
+
+    await event.edit("**Unpinned successfully!**")
+
+    user = await get_user_from_id(event.sender_id, event)
+
+    if BOTLOG:
+        await event.client.send_message(
+            BOTLOG_CHATID, "#UNPIN\n"
+            f"ADMIN: [{user.first_name}](tg://user?id={user.id})\n"
+            f"CHAT: {event.chat.title}(`{event.chat_id}`)\n"
+            f"ALL: {'Yes' if to_unpin else 'No'}")
+
+
 @register(outgoing=True, pattern=r"^\.kick(?: |$)(.*)")
 async def kick(usr):
     """ For .kick command, kicks the replied/tagged person from the group. """
@@ -838,6 +871,11 @@ CMD_HELP.update({
     "\nUsage: Mutes the person in the chat, works on admins too."
     "\n\n>`.unmute <username/reply>`"
     "\nUsage: Removes the person from the muted list."
+    "\n\n>`.pin <loud>[optional]`"
+    "\nUsage: Pins the replied message."
+    "\n\n>`.unpin`"
+    "\nUsage: Unpins the replied message."
+    "\nUnpins all pinned messages if not replied to a pinned message."
     "\n\n>`.zombies`"
     "\nUsage: Searches for deleted accounts in a group. "
     "Use .zombies clean to remove deleted accounts from the group."
